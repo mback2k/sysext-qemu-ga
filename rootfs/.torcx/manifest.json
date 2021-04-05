@@ -5,7 +5,8 @@
             "/bin/qemu-ga"
         ],
         "units": [
-            "/lib/systemd/system/qemu-guest-agent.service"
+            "/lib/systemd/system/qemu-guest-agent.service",
+            "/lib/systemd/system/multi-user.target.wants/"
         ]
     }
 }
