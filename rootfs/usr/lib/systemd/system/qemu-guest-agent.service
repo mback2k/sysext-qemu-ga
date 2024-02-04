@@ -1,21 +1,16 @@
 [Unit]
-Requires=torcx.target
-After=torcx.target
 Description=QEMU Guest Agent
 BindTo=dev-virtio\x2dports-org.qemu.guest_agent.0.device
 After=dev-virtio\x2dports-org.qemu.guest_agent.0.device
 
 [Service]
-EnvironmentFile=/run/metadata/torcx
-ExecStart=/usr/bin/env ${TORCX_BINDIR}/qemu-ga --statedir /tmp
+ExecStart=/usr/bin/qemu-ga --statedir /tmp
 ProtectSystem=strict
 ProtectHome=tmpfs
 ProtectHostname=yes
 PrivateNetwork=yes
 PrivateUsers=yes
 PrivateTmp=yes
-Restart=always
-RestartSec=1
 
 [Install]
 WantedBy=multi-user.target
