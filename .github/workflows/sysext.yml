@@ -11,11 +11,11 @@ jobs:
     steps:
       - run: sudo apt install -y ninja-build
 
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - run: make
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: 'sysext'
           path: 'sysext.raw'
@@ -26,25 +26,56 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: 'sysext'
 
-      - id: release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          draft: false
-          prerelease: false
+      - run: |
+          repository="${{ github.repository }}"
+          repository_name="${repository#*/}"
+          component="${repository_name#*-}"
 
-      - uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          mv sysext.raw "${component}-${{ github.ref_name }}-x86-64.raw"
+          sha256sum *.raw > SHA256SUMS
+
+          cat << EOF > "sysupdate-noop.conf"
+          [Source]
+          Type=regular-file
+          Path=/
+          MatchPattern=invalid@v.raw
+          [Target]
+          Type=regular-file
+          Path=/
+          EOF
+
+          cat << EOF > "sysupdate-${component}.conf"
+          [Transfer]
+          Verify=false
+          [Source]
+          Type=url-file
+          Path=https://github.com/${{ github.repository }}/releases/latest/download/
+          MatchPattern=${component}-@v-%a.raw
+          [Target]
+          InstancesMax=3
+          Type=regular-file
+          Path=/opt/extensions/${component}
+          CurrentSymlink=/etc/extensions/${component}.raw
+          EOF
+
+          cat << EOF > "systemd-${component}.conf"
+          [Service]
+          ExecStartPre=/usr/lib/systemd/systemd-sysupdate -C ${component} update
+          EOF
+
+          cat << EOF > "systemd-sysext.conf"
+          [Service]
+          ExecStartPost=/usr/bin/systemctl restart systemd-sysext
+          EOF
+
+      - uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_name: 'qemu-ga-${{ github.ref_name }}.raw'
-          asset_path: 'sysext.raw'
-          asset_content_type: application/octet-stream
+          name: Release ${{ github.ref_name }}
+          files: |
+            SHA256SUMS
+            *.raw
+            *.conf
